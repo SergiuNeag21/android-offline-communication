@@ -1,15 +1,17 @@
+gitignore
+# IDE Settings
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+.gradle/
+local.properties
+
+# Build outputs
+build/
+app/build/
+.kotlin/
+
+# System files
 .DS_Store
-/build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
