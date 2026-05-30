@@ -1,6 +1,5 @@
-package com.sergiuneag.offlinep2p
+package com.sergiuneag.offlinep2p.security
 
-import android.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
