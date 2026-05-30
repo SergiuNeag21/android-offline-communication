@@ -1,16 +1,32 @@
-package com.sergiuneag.offlinep2p
+package com.sergiuneag.offlinep2p.network
 
 import android.content.Context
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.google.android.gms.nearby.Nearby
-import com.google.android.gms.nearby.connection.*
+import com.google.android.gms.nearby.connection.AdvertisingOptions
+import com.google.android.gms.nearby.connection.ConnectionInfo
+import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
+import com.google.android.gms.nearby.connection.ConnectionResolution
+import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo
+import com.google.android.gms.nearby.connection.DiscoveryOptions
+import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback
+import com.google.android.gms.nearby.connection.Payload
+import com.google.android.gms.nearby.connection.PayloadCallback
+import com.google.android.gms.nearby.connection.PayloadTransferUpdate
+import com.google.android.gms.nearby.connection.Strategy
+import com.sergiuneag.offlinep2p.data.AppDatabase
+import com.sergiuneag.offlinep2p.data.MessageEntity
+import com.sergiuneag.offlinep2p.security.CryptoHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 class NearbyManager(private val context: Context) {
 
-    private val db = AppDatabase.getDatabase(context)
+    private val db = AppDatabase.Companion.getDatabase(context)
     private val messageDao = db.messageDao()
     private val connectionsClient = Nearby.getConnectionsClient(context)
     private val SERVICE_ID = "com.sergiuneag.offlinep2p.SERVICE_ID"
@@ -30,11 +46,13 @@ class NearbyManager(private val context: Context) {
 
                 // SALVARE ÎN DB (Mesaj primit)
                 GlobalScope.launch(Dispatchers.IO) {
-                    messageDao.insert(MessageEntity(
-                        content = decryptedData,
-                        isMe = false,
-                        isSent = true
-                    ))
+                    messageDao.insert(
+                        MessageEntity(
+                            content = decryptedData,
+                            isMe = false,
+                            isSent = true
+                        )
+                    )
                 }
 
                 onMessageReceived?.invoke(decryptedData)
@@ -47,13 +65,18 @@ class NearbyManager(private val context: Context) {
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {}
     }
 
+    private var discoveryStartTime: Long = 0
+    private var connectionStartTime: Long = 0
+
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
-            Log.d("P2P", "Found peer: ${info.endpointName}")
+            val discoveryDuration = System.currentTimeMillis() - discoveryStartTime
+            Log.d("P2P_PERF", "Peer found: ${info.endpointName} after ${discoveryDuration}ms")
 
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            connectionStartTime = System.currentTimeMillis()
+            Handler(Looper.getMainLooper()).postDelayed({
                 connectionsClient.requestConnection(
-                    android.os.Build.MODEL,
+                    Build.MODEL,
                     endpointId,
                     connectionLifecycleCallback
                 ).addOnFailureListener { e ->
@@ -74,8 +97,9 @@ class NearbyManager(private val context: Context) {
         }
 
         override fun onConnectionResult(endpointId: String, result: ConnectionResolution) {
+            val connectionDuration = System.currentTimeMillis() - connectionStartTime
             if (result.status.isSuccess) {
-                Log.d("P2P", "Connected to $endpointId")
+                Log.d("P2P_PERF", "Connected to $endpointId. Handshake took: ${connectionDuration}ms")
 
                 // Triggers synchronization of offline messages
                 syncUnsentMessages(endpointId)
@@ -99,7 +123,13 @@ class NearbyManager(private val context: Context) {
     fun sendMessage(message: String, endpointId: String?) {
         // Save to DB immediately (Persistence)
         GlobalScope.launch(Dispatchers.IO) {
-            val messageId = messageDao.insert(MessageEntity(content = message, isMe = true, isSent = false)).toInt()
+            val messageId = messageDao.insert(
+                MessageEntity(
+                    content = message,
+                    isMe = true,
+                    isSent = false
+                )
+            ).toInt()
 
             // If we are currently connected, try to send it now
             if (endpointId != null) {
@@ -134,6 +164,7 @@ class NearbyManager(private val context: Context) {
     }
 
     fun startP2P() {
+        discoveryStartTime = System.currentTimeMillis()
         connectionsClient.stopAllEndpoints()
         connectionsClient.stopAdvertising()
         connectionsClient.stopDiscovery()
@@ -144,7 +175,7 @@ class NearbyManager(private val context: Context) {
 
     private fun startAdvertising() {
         val options = AdvertisingOptions.Builder().setStrategy(STRATEGY).build()
-        connectionsClient.startAdvertising(android.os.Build.MODEL, SERVICE_ID, connectionLifecycleCallback, options)
+        connectionsClient.startAdvertising(Build.MODEL, SERVICE_ID, connectionLifecycleCallback, options)
             .addOnSuccessListener { Log.d("P2P", "Adv started") }
     }
 
