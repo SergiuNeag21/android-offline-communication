@@ -8,14 +8,27 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -26,11 +39,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.sergiuneag.offlinep2p.ui.theme.OfflineP2PTheme
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    // The ViewModel is now the entry point for data and logic
     private val viewModel: ChatViewModel by viewModels()
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -67,13 +78,43 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
     val messages = viewModel.messages
     val status by viewModel.status
     val connectedId by viewModel.connectedId
+    
+    val verificationCode by viewModel.verificationCode
+    val pendingPublicKey by viewModel.pendingPublicKey
+    val isTrustEstablished by viewModel.isTrustEstablished
 
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
-    val coroutineScope = rememberCoroutineScope()
     val isKeyboardVisible = WindowInsets.isImeVisible
 
-    // Thesis Note: Reactive UI auto-scroll
+    // Security Dialog
+    if (verificationCode != null && pendingPublicKey != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.rejectConnection() },
+            title = { Text("Security Verification") },
+            text = { 
+                Column {
+                    Text("Verify this code with the peer to ensure a secure connection:")
+                    Text(
+                        text = verificationCode!!,
+                        style = MaterialTheme.typography.displayMedium,
+                        modifier = Modifier.padding(vertical = 16.dp).align(Alignment.CenterHorizontally)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.acceptConnection() }) {
+                    Text("Accept")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.rejectConnection() }) {
+                    Text("Reject")
+                }
+            }
+        )
+    }
+
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
@@ -82,8 +123,8 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            // Thesis Note: Clearer separation of Header
             TopAppBar(
                 title = {
                     Column {
@@ -91,7 +132,7 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                         Text(
                             text = "Status: $status",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (connectedId != null) MaterialTheme.colorScheme.primary
+                            color = if (isTrustEstablished) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.error
                         )
                     }
@@ -107,16 +148,15 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // Respects TopBar and BottomBar
-                .imePadding() // Handles Keyboard
+                .padding(paddingValues)
+                .consumeWindowInsets(paddingValues)
+                .imePadding()
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { keyboardController?.hide() })
                 }
         ) {
-            // --- MESSAGES AREA ---
             Box(modifier = Modifier.weight(1f)) {
                 if (messages.isEmpty()) {
-                    // Thesis Note: UX improvement for empty state
                     Text(
                         "No messages yet. Start discovery to chat!",
                         modifier = Modifier.align(Alignment.Center),
@@ -130,9 +170,10 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp)
                 ) {
-                    items(messages) { message ->val isMe = message.isMe
+                    items(messages) { message ->
+                        val isMe = message.isMe
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Alignment.End.let { if (isMe) Modifier.fillMaxWidth() else Modifier.fillMaxWidth() }, // Placeholder for alignment logic
                             horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
                         ) {
                             Text(
@@ -156,7 +197,6 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                 }
             }
 
-            // --- INPUT AREA ---
             Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -164,8 +204,9 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                             value = messageText,
                             onValueChange = { messageText = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Write something...") },
+                            placeholder = { Text(if (isTrustEstablished) "Write something..." else "Awaiting verification...") },
                             maxLines = 3,
+                            enabled = isTrustEstablished,
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
@@ -173,18 +214,17 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         IconButton(
-                            enabled = messageText.isNotBlank(),
+                            enabled = messageText.isNotBlank() && isTrustEstablished,
                             onClick = {
                                 viewModel.sendMessage(messageText)
                                 messageText = ""
-                                // Essential for A51 performance
                                 keyboardController?.hide()
                             }
                         ) {
                             Icon(
-                                Icons.Default.Send,
+                                Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "Send",
-                                tint = if (messageText.isNotBlank()) MaterialTheme.colorScheme.primary
+                                tint = if (messageText.isNotBlank() && isTrustEstablished) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.outline
                             )
                         }

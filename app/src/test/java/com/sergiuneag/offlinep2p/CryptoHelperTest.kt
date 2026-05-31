@@ -3,42 +3,46 @@ package com.sergiuneag.offlinep2p
 import com.sergiuneag.offlinep2p.security.CryptoHelper
 import org.junit.Assert.*
 import org.junit.Test
+import javax.crypto.spec.SecretKeySpec
 
-/**
- * Unit test for [CryptoHelper].
- * This test verifies the security claims made in the thesis by proving that:
- * 1. Encryption changes the original text (Confidentiality).
- * 2. Decryption restores the original text (Integrity).
- */
 class CryptoHelperTest {
 
+    private val testKey = SecretKeySpec("1234567890123456".toByteArray(), "AES")
+
     @Test
-    fun testEncryptionDecryption() {
+    fun testGcmEncryptionDecryption() {
         val originalMessage = "Hello, this is a secret P2P message!"
         
         // 1. Test Encryption
-        val encryptedBytes = CryptoHelper.encrypt(originalMessage)
-        val encryptedString = String(encryptedBytes)
-        
-        // Ensure the encrypted text is NOT the same as original
-        assertNotEquals("Encrypted message should not match original", originalMessage, encryptedString)
+        val encryptedBytes = CryptoHelper.encrypt(originalMessage, testKey)
         
         // 2. Test Decryption
-        val decryptedMessage = CryptoHelper.decrypt(encryptedBytes)
+        val decryptedMessage = CryptoHelper.decrypt(encryptedBytes, testKey)
         
         // Ensure we got back exactly what we sent
         assertEquals("Decrypted message should match original", originalMessage, decryptedMessage)
     }
 
     @Test
-    fun testEncryptionChangesOutput() {
-        val msg1 = "Message One"
-        val msg2 = "Message Two"
+    fun testUniqueIVs() {
+        val message = "Constant Message"
         
-        val enc1 = CryptoHelper.encrypt(msg1)
-        val enc2 = CryptoHelper.encrypt(msg2)
+        val enc1 = CryptoHelper.encrypt(message, testKey)
+        val enc2 = CryptoHelper.encrypt(message, testKey)
         
-        // Ensure different messages result in different ciphertexts
-        assertFalse("Different messages should have different encryptions", enc1.contentEquals(enc2))
+        // GCM should use random IVs, so encryptions should be different
+        assertFalse("Same message should have different encryptions due to IV", enc1.contentEquals(enc2))
+    }
+
+    @Test
+    fun testTamperDetection() {
+        val message = "Secret"
+        val encrypted = CryptoHelper.encrypt(message, testKey)
+        
+        // Tamper with one byte of the ciphertext (skipping the IV)
+        encrypted[15] = (encrypted[15].toInt() xor 0xFF).toByte()
+        
+        val result = CryptoHelper.decrypt(encrypted, testKey)
+        assertEquals("Decryption Error", result)
     }
 }
