@@ -1,4 +1,4 @@
-package com.sergiuneag.offlinep2p.security
+package com.sergiuneag.offlinep2p
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties

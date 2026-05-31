@@ -1,4 +1,4 @@
-package com.sergiuneag.offlinep2p.network
+package com.sergiuneag.offlinep2p
 
 import android.content.Context
 import android.os.Build

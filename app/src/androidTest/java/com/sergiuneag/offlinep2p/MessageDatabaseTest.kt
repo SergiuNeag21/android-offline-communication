@@ -7,6 +7,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sergiuneag.offlinep2p.data.AppDatabase
 import com.sergiuneag.offlinep2p.data.MessageDao
 import com.sergiuneag.offlinep2p.data.MessageEntity
+import com.sergiuneag.offlinep2p.data.PeerEntity
+import com.sergiuneag.offlinep2p.data.TrustLevel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -32,13 +34,83 @@ class MessageDatabaseTest {
         // Use an in-memory database for testing so it's wiped after every test
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
         messageDao = db.messageDao()
+        @Test
+    @Throws(Exception::class)
+    fun testPeerStorage() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        
+        peerDao.insert(peer)
+        
+        val retrieved = peerDao.getPeerById("test_device")
+        assertEquals("Test Peer", retrieved?.peerName)
+        assertEquals(TrustLevel.UNVERIFIED, retrieved?.trustLevel)
     }
+
+    @Test
+    @Throws(Exception::class)
+    fun testUpdateTrustLevel() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        peerDao.insert(peer)
+        
+        peerDao.updateTrustLevel("test_device", TrustLevel.VERIFIED)
+        
+        val updated = peerDao.getPeerById("test_device")
+        assertEquals(TrustLevel.VERIFIED, updated?.trustLevel)
+    }
+}
 
     @After
     @Throws(IOException::class)
     fun closeDb() {
         db.close()
+        @Test
+    @Throws(Exception::class)
+    fun testPeerStorage() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        
+        peerDao.insert(peer)
+        
+        val retrieved = peerDao.getPeerById("test_device")
+        assertEquals("Test Peer", retrieved?.peerName)
+        assertEquals(TrustLevel.UNVERIFIED, retrieved?.trustLevel)
     }
+
+    @Test
+    @Throws(Exception::class)
+    fun testUpdateTrustLevel() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        peerDao.insert(peer)
+        
+        peerDao.updateTrustLevel("test_device", TrustLevel.VERIFIED)
+        
+        val updated = peerDao.getPeerById("test_device")
+        assertEquals(TrustLevel.VERIFIED, updated?.trustLevel)
+    }
+}
 
     @Test
     @Throws(Exception::class)
@@ -59,7 +131,42 @@ class MessageDatabaseTest {
         assertEquals(1, allMessages.size)
         assertEquals("Offline Test Message", allMessages[0].content)
         assertEquals(false, allMessages[0].isSent)
+        @Test
+    @Throws(Exception::class)
+    fun testPeerStorage() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        
+        peerDao.insert(peer)
+        
+        val retrieved = peerDao.getPeerById("test_device")
+        assertEquals("Test Peer", retrieved?.peerName)
+        assertEquals(TrustLevel.UNVERIFIED, retrieved?.trustLevel)
     }
+
+    @Test
+    @Throws(Exception::class)
+    fun testUpdateTrustLevel() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        peerDao.insert(peer)
+        
+        peerDao.updateTrustLevel("test_device", TrustLevel.VERIFIED)
+        
+        val updated = peerDao.getPeerById("test_device")
+        assertEquals(TrustLevel.VERIFIED, updated?.trustLevel)
+    }
+}
 
     @Test
     @Throws(Exception::class)
@@ -77,5 +184,75 @@ class MessageDatabaseTest {
         
         val updatedMessage = messageDao.getAllMessages().first()[0]
         assertEquals(true, updatedMessage.isSent)
+        @Test
+    @Throws(Exception::class)
+    fun testPeerStorage() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        
+        peerDao.insert(peer)
+        
+        val retrieved = peerDao.getPeerById("test_device")
+        assertEquals("Test Peer", retrieved?.peerName)
+        assertEquals(TrustLevel.UNVERIFIED, retrieved?.trustLevel)
+    }
+
+    @Test
+    @Throws(Exception::class)
+    fun testUpdateTrustLevel() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        peerDao.insert(peer)
+        
+        peerDao.updateTrustLevel("test_device", TrustLevel.VERIFIED)
+        
+        val updated = peerDao.getPeerById("test_device")
+        assertEquals(TrustLevel.VERIFIED, updated?.trustLevel)
+    }
+}
+    @Test
+    @Throws(Exception::class)
+    fun testPeerStorage() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        
+        peerDao.insert(peer)
+        
+        val retrieved = peerDao.getPeerById("test_device")
+        assertEquals("Test Peer", retrieved?.peerName)
+        assertEquals(TrustLevel.UNVERIFIED, retrieved?.trustLevel)
+    }
+
+    @Test
+    @Throws(Exception::class)
+    fun testUpdateTrustLevel() = runBlocking {
+        val peerDao = db.peerDao()
+        val peer = PeerEntity(
+            deviceId = "test_device",
+            peerName = "Test Peer",
+            publicKey = "test_key",
+            trustLevel = TrustLevel.UNVERIFIED
+        )
+        peerDao.insert(peer)
+        
+        peerDao.updateTrustLevel("test_device", TrustLevel.VERIFIED)
+        
+        val updated = peerDao.getPeerById("test_device")
+        assertEquals(TrustLevel.VERIFIED, updated?.trustLevel)
     }
 }
