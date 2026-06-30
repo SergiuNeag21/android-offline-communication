@@ -13,6 +13,8 @@ import kotlinx.coroutines.Dispatchers
 import androidx.compose.runtime.State
 import com.sergiuneag.offlinep2p.data.PeerEntity
 import com.sergiuneag.offlinep2p.data.TrustLevel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -34,15 +36,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isTrustEstablished = mutableStateOf(false)
     val isTrustEstablished: State<Boolean> = _isTrustEstablished
 
-    init {
-        // Observe Database changes
-        viewModelScope.launch {
-            db.messageDao().getAllMessages().collect { savedMessages ->
-                messages.clear()
-                messages.addAll(savedMessages)
-            }
-        }
+    private var messageCollectionJob: Job? = null
 
+    init {
         // Setup Nearby Callbacks
         nearbyManager.onConnectionChanged = { id, newStatus ->
             connectedId.value = id
@@ -51,6 +47,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _verificationCode.value = null
                 _pendingPublicKey.value = null
                 _isTrustEstablished.value = false
+                stopObservingMessages()
             }
         }
 
@@ -63,12 +60,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _pendingPublicKey.value = publicKey
         }
 
-        nearbyManager.onTrustLevelChanged = { isEstablished ->
+        nearbyManager.onTrustLevelChanged = { isEstablished, publicKey ->
             _isTrustEstablished.value = isEstablished
-            if (isEstablished) {
+            if (isEstablished && publicKey != null) {
                 status.value = "Securely Connected"
+                startObservingMessages(publicKey)
+            } else {
+                stopObservingMessages()
             }
         }
+    }
+
+    private fun startObservingMessages(peerPublicKey: String) {
+        messageCollectionJob?.cancel()
+        messageCollectionJob = viewModelScope.launch {
+            db.messageDao().getMessagesByPeer(peerPublicKey).collect { savedMessages ->
+                messages.clear()
+                messages.addAll(savedMessages)
+            }
+        }
+    }
+
+    private fun stopObservingMessages() {
+        messageCollectionJob?.cancel()
+        messages.clear()
     }
 
     fun acceptConnection() {
@@ -76,7 +91,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch(Dispatchers.IO) {
                 db.peerDao().updateTrustLevel(pubKey, TrustLevel.VERIFIED)
                 
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                viewModelScope.launch(Dispatchers.Main) {
                     connectedId.value?.let { nearbyManager.acceptConnection(it) }
                     _verificationCode.value = null
                     _pendingPublicKey.value = null
@@ -89,11 +104,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _verificationCode.value = null
         _pendingPublicKey.value = null
         _isTrustEstablished.value = false
+        stopObservingMessages()
         connectedId.value?.let { nearbyManager.rejectConnection(it) }
     }
 
     fun sendMessage(text: String) {
-        if (text.isNotBlank() && _isTrustEstablished.value) {
+        if (text.isNotBlank()) {
             nearbyManager.sendMessage(text, connectedId.value)
         }
     }

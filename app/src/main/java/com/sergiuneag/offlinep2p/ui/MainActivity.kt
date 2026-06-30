@@ -204,9 +204,15 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                             value = messageText,
                             onValueChange = { messageText = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text(if (isTrustEstablished) "Write something..." else "Awaiting verification...") },
+                            placeholder = { 
+                                Text(
+                                    if (isTrustEstablished) "Write something..." 
+                                    else if (connectedId != null) "Awaiting trust..." 
+                                    else "Offline..."
+                                ) 
+                            },
                             maxLines = 3,
-                            enabled = isTrustEstablished,
+                            enabled = true,
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
@@ -214,7 +220,7 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         IconButton(
-                            enabled = messageText.isNotBlank() && isTrustEstablished,
+                            enabled = messageText.isNotBlank(),
                             onClick = {
                                 viewModel.sendMessage(messageText)
                                 messageText = ""
@@ -224,7 +230,7 @@ fun MainScreen(viewModel: ChatViewModel, onRequestPermissions: () -> Unit) {
                             Icon(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "Send",
-                                tint = if (messageText.isNotBlank() && isTrustEstablished) MaterialTheme.colorScheme.primary
+                                tint = if (messageText.isNotBlank()) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.outline
                             )
                         }

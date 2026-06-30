@@ -9,5 +9,6 @@ data class MessageEntity(
     val content: String,
     val isMe: Boolean,
     val isSent: Boolean = false,
+    val peerPublicKey: String? = null, // The other party in the conversation
     val timestamp: Long = System.currentTimeMillis()
 )
